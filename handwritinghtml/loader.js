@@ -21,8 +21,31 @@ function instantiate(bytes, imports) {
 }
 
 
-var importObject = { imports: { i: arg => console.log(arg) } };
+var importObject = { imports: { i: arg => console.log(arg) },STACKTOP:10 };
 
-fetch('simple.wasm').then(response => response.arrayBuffer())
+//var wasmfile = 'simple.wasm';
+var wasmfile = 'perftest.wasm';
+fetch(wasmfile).then(response => response.arrayBuffer())
 .then(bytes => instantiate(bytes, importObject))
-.then(instance => instance.exports.e());
+.then(instance => {
+    var st = Date.now();
+    instance.exports.e();
+    alert('wasm tm='+(Date.now()-st));
+    });
+
+
+function testf1(f){
+    return f*f/2.0;
+}
+
+function testJS(){
+    var num = 1000000;
+    var f=0;
+    for(var i=0; i<num; i++){
+        f = f+testf1(i*1.1);
+    }
+}
+
+var st = Date.now();
+testJS();
+alert('js tm='+(Date.now()-st));

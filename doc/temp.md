@@ -9,6 +9,9 @@
         这个表示 $i 是从 imports.i导入的，所以需要在instance的时候有对应的导入对象
         var importObject = { imports: { i: arg => console.log(arg) } }; 
 
+    导出函数的返回值
+    例如 float test(){}
+
 文本格式
     s-expression
     就是写module
@@ -18,9 +21,18 @@
             …))
     除了手写怎么能生成这种格式
 
+    s表达式的具体语法
+        https://github.com/WebAssembly/spec/tree/master/interpreter
+
     wast
          ../../wabt/out/wast2wasm simple.wast -o simple.wasm
          如果不指定输出，则只是检查
+
+    global
+        需要定义么
+
+    local
+
 怎么反汇编wasm
     WABT
         webasm 二进制工具
