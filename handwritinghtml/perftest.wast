@@ -1,6 +1,6 @@
   (module
   (import "STACKTOP" "" (global $STACKTOP$TT i32))
-  (func $i (import "imports" "i") (param f32))
+  (func $i (import "imports" "i") (param f32 i32)  )
   (global $STACKTOP (mut i32) (get_global $STACKTOP$TT))
   (func (export "e") (param $$0 i32) (result f32)
     (local $$1 i32)
@@ -110,6 +110,7 @@
     )
     ;;打印结果
     (get_local $$3)
+    i32.const 44
     call $i
     (return
       (get_local $$15)

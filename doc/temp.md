@@ -3,6 +3,15 @@
 2. 把他编译到 WebAssembly.Module
 3. 加上需要import的模块来实例化 WebAssembly.Module， 返回一个exports
 
+栈
+    所有的操作都是影响堆栈，例如 getglobal 就是把结果放到栈顶，下面的call可以直接使用
+    参数是按照先左后右的顺序入栈的，例如 func1(a,b)则
+    a
+    b
+    call func1
+
+    
+
 导入和导出
     导入的是js函数。导出的可以让js执行。
     (func $i (import “imports” “i”) (param i32))
@@ -23,7 +32,8 @@
 
     s表达式的具体语法
         https://github.com/WebAssembly/spec/tree/master/interpreter
-
+        语义
+        http://webassembly.org/docs/semantics/
     wast
          ../../wabt/out/wast2wasm simple.wast -o simple.wasm
          如果不指定输出，则只是检查
@@ -32,6 +42,10 @@
         需要定义么
 
     local
+
+    怎么处理字符串
+
+memory的用法
 
 怎么反汇编wasm
     WABT

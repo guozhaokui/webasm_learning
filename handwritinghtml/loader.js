@@ -21,7 +21,7 @@ function instantiate(bytes, imports) {
 }
 
 
-var importObject = { imports: { i: arg => console.log(arg) },STACKTOP:10 };
+var importObject = { imports: { i: (arg,arg1) => console.log(arg,arg1) },STACKTOP:10 };
 
 //var wasmfile = 'simple.wasm';
 var wasmfile = 'perftest.wasm';
