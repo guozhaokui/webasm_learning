@@ -1,55 +1,106 @@
-
-interface WebAssembly{
-    Instance();
-}
-
-namespace WebAssembly{
+/**
+ * WebAssembly v1 (MVP) declaration file for TypeScript
+ * Definitions by: 01alchemist (https://twitter.com/01alchemist)
+ */
+declare namespace WebAssembly {
     /**
-     * 实际好多函数都是返回promise
-     */
-    class Module{
-        constructor(wasmbin:ArrayBuffer){}
+     * WebAssembly.Module
+     **/
+    class Module {
+        constructor (bufferSource: ArrayBuffer | Uint8Array);
+
+        static customSections(module: Module, sectionName: string): ArrayBuffer[];
+        static exports(module: Module): {
+            name: string;
+            kind: string;
+        }[];
+        static imports(module: Module): {
+            module: string;
+            name: string;
+            kind: string;
+        }[];
     }
 
-    function Instance(mod:Module, inf:Info){
-
+    /**
+     * WebAssembly.Instance
+     **/
+    class Instance {
+        readonly exports: any;
+        constructor (module: Module, importObject?: any);
     }
-    function compile(data:ArrayBuffer):Module{
 
+    /**
+     * WebAssembly.Memory
+     * Note: A WebAssembly page has a constant size of 65,536 bytes, i.e., 64KiB.
+     **/
+    interface MemoryDescriptor {
+        initial: number;
+        maximum?: number;
     }
-    class Memory{
-        buffer:ArrayBuffer=null;
 
-        constructor(memdesc:{initial:number,maximum:number}){
-        }
-
+    class Memory {
+        readonly buffer: ArrayBuffer;
+        constructor (memoryDescriptor: MemoryDescriptor);
         /**
          * 如果超出最大范围了，就会抛出 RangeError 异常
          * grow后，buffer就会变成另外一个对象了，外面使用的要注意了
-         */
-        grow(sz:number){}   
+         */        
+        grow(numPages: number): number;
     }
-    class Table{
-        constructor(tableDesc:{ initial: number, maximum: number, element: 'anyfunc' }){}
+
+    /**
+     * WebAssembly.Table
+     **/
+    interface TableDescriptor {
+        element: "anyfunc", //现在只允许使用这个，表示这是一个函数
+        initial: number;    //初始个数
+        maximum?: number;   //最大增长到的个数
     }
+
+    class Table {
+        readonly length: number;
+        constructor (tableDescriptor: TableDescriptor);
+        get(index: number): Function;
+        grow(numElements: number): number;
+        set(index: number, value: Function): void;
+    }
+
+    /**
+     * Errors
+     */
+    class CompileError extends Error {
+        readonly fileName: string;
+        readonly lineNumber: string;
+        readonly columnNumber: string;
+        constructor (message?:string, fileName?:string, lineNumber?:number);
+        toString(): string;
+    }
+
+    class LinkError extends Error {
+        readonly fileName: string;
+        readonly lineNumber: string;
+        readonly columnNumber: string;
+        constructor (message?:string, fileName?:string, lineNumber?:number);
+        toString(): string;
+    }
+
+    class RuntimeError extends Error {
+        readonly fileName: string;
+        readonly lineNumber: string;
+        readonly columnNumber: string;
+        constructor (message?:string, fileName?:string, lineNumber?:number);
+        toString(): string;
+    }
+
+    function compile(bufferSource: ArrayBuffer | Uint8Array): Promise<Module>;
+
+    interface ResultObject {
+        module: Module;
+        instance: Instance;
+    }
+
+    function instantiate(bufferSource: ArrayBuffer | Uint8Array, importObject?: any): Promise<ResultObject>;
+    function instantiate(module: Module, importObject?: any): Promise<Instance>;
+
+    function validate(bufferSource: ArrayBuffer | Uint8Array): boolean;
 }
-
-class Env{
-    memory:WebAssembly.Memory;
-    memoryBase:number;//代码从哪开始
-    table:WebAssembly.Table;
-    tableBase=0;//动态链接的话这个不是0
-}
-
-class Info{
-    global=null;
-    env=null;
-    asm2wasm=null;
-    parent=null;
-}
-
-function init(){
-    Info['global.Math']=global.Math;
-}
-
-
