@@ -15,6 +15,10 @@ emcc hello.c -s WASM=1 -o hello.html
  ../../wabt/out/wast2wasm simple.wast -o simple.wasm
 4. 用  57.0.2928.0 canary (64-bit) 打开。chrome本身即是支持webasm也可能无法运行。
 
+## 新的测试环境
+\\10.10.20.8\layabox\emsdk
+
+
 栈
     所有的操作都是影响堆栈，例如 getglobal 就是把结果放到栈顶，下面的call可以直接使用
     参数是按照先左后右的顺序入栈的，例如 func1(a,b)则
@@ -52,6 +56,12 @@ emcc直接生成的结构
         https://github.com/WebAssembly/spec/tree/master/interpreter
         语义
         http://webassembly.org/docs/semantics/
+
+        https://github.com/WebAssembly/spec/tree/master/interpreter/#s-expression-syntax
+
+        例如 import
+        import:  ( import   <string>    <string>    <imkind> )
+                            module名字    名字       类型，例如global， func
     wast
          ../../wabt/out/wast2wasm simple.wast -o simple.wasm
          如果不指定输出，则只是检查
@@ -103,11 +113,15 @@ $ 表示变量名称？
 (节点类型 参数1 参数2 ...) 有几个参数和每个参数的意义根据节点类型定
 参数也有可能是节点
 
+
+
 ## module
-module 可执行，potable，有导入导出
+module 可执行，portable，有本module的导入导出，有一个heap（ArrayBuffer）。
 一个wasm文件就是一个module，里面可以包含很多的导出函数
 可以有多个wasm文件
 
+## 项目要用多个wasm还是单个
+多个wasm使用同一个地址空间
 
 ## table
 是一个类似array的东西，里面现在只能保存js函数的引用。js和asm都能访问里面的东西
@@ -131,6 +145,11 @@ fetchAndInstantiate('table2.wasm', importObject).then(function(instance) {
   (table (export "tbl") anyfunc (elem $thirteen $fourtytwo))    //这个表示把tbl的两个元素用这两个函数填上，这样js就可以调用这两个函数了， tbl.get(0)() 注意最后()
 )
 ```
+## 实际流程
+Clang -> LLVM -> Binaryen -> WebAssembly
+
+## binaryen 是什么
+
 
 ## emcc
 emcc x.c -o obj/
@@ -156,18 +175,86 @@ c++11
 
 -s WASM=1 生成wasm代码
 
+[一个用emcc多个cpp文件的例子](https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/master/build-js.sh)
+[另一个](https://github.com/jfbastien/musl)
 
 怎么link
 emcc 的输入文件可以是bc文件
 也可以是llvm的汇编文件
+
 如果是.a的话，是什么编译的.a
+[参照](https://zhuanlan.zhihu.com/p/24632251)
+用emscripten修改过的clang
+clang++ --target=wasm32 magic.cpp -emit-llvm -o magic.bc -c
+再用llc生成.s
+llc -march=wasm32 -filetype=asm magic.bc -o magic.s
+s2wasm magic.s >magic.wast
+wasm-as magic.wast >magic.wasm
+
+----
+  clang -S -O2 --target=wasm32-unknown-unknown ./dlhello.c
+  clang -S -O2 --target=wasm32-unknown-unknown ./dlworld.c
+  s2wasm dlhello.s -o dlhello.wast
+  s2wasm dlworld.s -o dlworld.wast
+  sexpr-wasm dlhello.wast -o dlhello.wasm
+  sexpr-wasm dlworld.wast -o dlworld.wasm
+----
 
 ./emcc -O3 tests/bullet/Demos/HelloWorld/HelloWorldFrames.cpp tests/bullet/Demos/HelloWorld/BenchmarkDemo.cpp /tmp/emscripten_temp/building/bullet/src/BulletDynamics/libBulletDynamics.a /tmp/emscripten_temp/building/bullet/src/BulletCollision/libBulletCollision.a /tmp/emscripten_temp/building/bullet/src/LinearMath/libLinearMath.a -o tests/bullet/Demos/HelloWorld/frames.js -I./tests/bullet/src -s TOTAL_MEMORY=60000000 -s LINKABLE=1
 
 
+## 导出函数的方法
+js手写，然后调用wasm中导出的方法
+。 不能直接输出wasm
+    WARNING:root:output file "xx.wasm" has a wasm suffix, but we cannot emit wasm by itself, except as a dynamic library (see SIDE_MODULE option). specify an output file with suffix .js or .html, and a wasm file will be created on the side
+
+js调用c函数
+例如  library_glut 中的函数回调
+glutIdleFunc: function(func)
+这里的func就是c函数
+
+## 与C交互
+https://kripken.github.io/emscripten-site/docs/porting/connecting_cpp_and_javascript/Interacting-with-code.html#interacting-with-code-direct-function-calls
 
 **怎么编译库**
+http://kripken.github.io/emscripten-site/docs/compiling/Building-Projects.html#building-projects
+
 看bullet的例子
+1. 用emcc替换gcc等
+emconfigure ./configure
+2. 生成链接过的llvm bitcode, 当然扩展名可能是.so或者.a，或者.o,.bc
+emmake make
+由于emmc不需要指定gles等头文件，因此，直接在makefile中指定emcc不如调用emmake make， 前者会找不到合适的头文件
+
+3. 用emcc生成js
+emcc -O3 xx.so -o xx.js
+
+优化选项
+生成bc的时候，可以用-Ox控制c的优化，生成js的时候，可以用-Ox控制js的优化，他们两个的优化程度必须一致
+
+一个库，一个主项目的例子
+```bash
+# Compile libstuff to bitcode
+./emconfigure ./configure
+./emmake make
+
+# Compile project to bitcode
+./emconfigure ./configure
+./emmake make
+
+# Compile the library and code together to HTML
+emcc project.bc libstuff.bc -o final.html
+```
+或者先链接两个bc也行
+emcc project.bc libstuff.bc -o allproject.bc
+
+
+## 怎么使用.a
+看 emcc.py
+如果使用.a出现问题，可以编译成.so, 反正emcc把so也看成.bc静态链接，而且.a有个重名文件的问题，so没有
+
+## libc
+底层调用全部都是 syscall
 
 ## 调试
 1. 转到asm.js
@@ -181,7 +268,27 @@ emsdk\emscripten\incoming\src
 ## --js-library
 emsdk\emscripten\incoming\src
 下面的 libray_xxx
+如果是自己写的就
 
+--js-library a.js
+
+jslibrary的格式
+
+mergeInto(LibraryManager.library, LibraryGL);
+LibraryGL是一个对象
+
+函数之间如果也有依赖，为了能正确编译，需要把依赖写上
+glutMainLoop__deps: ['$GLUT', 'glutReshapeWindow', 'glutPostRedisplay'],
+glutMainLoop: function() {
+    ...
+
+
+glPixelStorei__sig: 'vii',
+    这种写法是library_gl内部使用的，用来自动构造函数
+
+## 基本js库
+emsdk\emscripten\incoming\src/preamble.js
+http://kripken.github.io/emscripten-site/docs/api_reference/preamble.js.html
 
 ## Memory
 js和asm都可以创建，js和asm都能访问。
@@ -193,6 +300,35 @@ TODO 直接用c写的话，怎么导出memory
 (export "_malloc" (func 69))
 
 var _malloc = Module["_malloc"] = function() { return Module["asm"]["_malloc"].apply(null, arguments) };
+
+Module.STATIC_BASE 静态变量的起始地址？
+
+// EMSCRIPTEN_START_ASM
+var asm =Module["asm"]// EMSCRIPTEN_END_ASM
+(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
+
+Module['wasmMemory'] instanceof WebAssembly.Memory
+
+      exports = instance.exports;
+      if (exports.memory) mergeMemory(exports.memory);
+
+现在是在js这边生成的memory，而不是导出的
+    Module['wasmMemory'] = new WebAssembly.Memory({ 'initial': TOTAL_MEMORY / WASM_PAGE_SIZE, 'maximum': TOTAL_MEMORY / WASM_PAGE_SIZE });
+    buffer = Module['wasmMemory'].buffer;
+
+    Module['buffer'] = buffer;
+
+    env['memory'] = Module['wasmMemory'];
+    在wasm中
+        (import "env" "memory" (memory $0 256 256))    
+    memory 只能import一个，然后后面所有的load，store等都在此基础上操作？ 后面的256是什么意思呢，外面的是16M，这里只用256*64K 也是16M
+
+js传递指针给c
+var buf = Module._malloc(myTypedArray.length*myTypedArray.BYTES_PER_ELEMENT);
+Module.HEAPU8.set(myTypedArray, buf);
+Module.ccall('my_function', 'number', ['number'], [buf]);   //这里也可以直接调用c函数 _my_function(buf)
+Module._free(buf);
+
 
 目前只能有一个memory？
 
@@ -269,6 +405,23 @@ malloc, printf之类的？
 不需要，可能环境中有了。但是有个问题 glGetStringi 在 GLES3/gl3.h ，却无法编译
 一旦在c中调用webgl的函数，实际上都会再转到js，emcc生成js会根据调用需要链接的函数，把对应的js库函数加到xxx.js中，例如调用了 glGetIntegerv, 则xxx.js中就有一个 _glGetIntegerv 的js函数
 调用了 glEnable, js中就多了一个_glEnable的函数
+
+2. 设置大小
+glutInitWindowSize 这个在 lirbray_glut.js中
+```javascript
+  glutInitWindowSize: function(width, height) {
+    Browser.setCanvasSize( GLUT.initWindowWidth = width,
+                           GLUT.initWindowHeight = height );
+  },
+```
+  Browser.setCanvasSize 在 library_Browser.js中
+```javascript
+      setCanvasSize: function(width, height, noUpdates) {
+      var canvas = Module['canvas'];
+      Browser.updateCanvasDimensions(canvas, width, height);
+      if (!noUpdates) Browser.updateResizeListeners();
+    },
+```
 
 ## 常用功能
 emscripten_debugger();  调用js的debugger
@@ -377,3 +530,4 @@ chrome 47才支持
 
 ## 参考
 [c to wasm](https://developer.mozilla.org/en-US/docs/WebAssembly/C_to_wasm)
+[emcc的帮助文档](http://kripken.github.io/emscripten-site/docs/tools_reference/emcc.html#emccdoc)
