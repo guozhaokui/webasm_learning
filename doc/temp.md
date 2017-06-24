@@ -150,6 +150,10 @@ Clang -> LLVM -> Binaryen -> WebAssembly
 
 ## binaryen 是什么
 
+## 怎么同时生成asm.js和wasm，然后加载的时候优先加载wasm
+
+分离asm文件 --separate-asm 这个会生成一个单独的asm文件，加载方式是在html中写了一段代码，通过动态创建script标签的方式来先加载
+这样就不适合放到worker中了
 
 ## emcc
 emcc x.c -o obj/
